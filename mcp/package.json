@@ -1,0 +1,25 @@
+{
+  "name": "lnd-wallet-mcp",
+  "version": "1.0.0",
+  "description": "MCP server giving AI agents a budget-limited Lightning wallet via LND REST API",
+  "main": "lnd-wallet-mcp.js",
+  "type": "module",
+  "scripts": {
+    "start": "node lnd-wallet-mcp.js"
+  },
+  "keywords": [
+    "mcp",
+    "lightning",
+    "lnd",
+    "l402",
+    "ai-agent",
+    "wallet",
+    "bitcoin"
+  ],
+  "author": "Eric Hadley",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.22.0"
+  }
+}

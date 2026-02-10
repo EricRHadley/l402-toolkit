@@ -1,0 +1,23 @@
+{
+  "name": "l402-toolkit",
+  "version": "1.0.0",
+  "description": "L402 protocol module for Node.js — Lightning-gated content with macaroon-based auth",
+  "main": "l402.js",
+  "scripts": {
+    "example": "node example-server.js"
+  },
+  "keywords": [
+    "l402",
+    "lightning",
+    "bitcoin",
+    "macaroon",
+    "paywall",
+    "lnd",
+    "402"
+  ],
+  "author": "Eric Hadley",
+  "license": "MIT",
+  "dependencies": {
+    "macaroons.js": "^0.3.6"
+  }
+}
