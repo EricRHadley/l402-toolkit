@@ -77,7 +77,7 @@ They're complementary — you could run Aperture for coarse API gating and l402.
 
 ## The Server Side: l402.js
 
-`l402.js` is the L402 protocol module. 300 lines, one dependency (`macaroons.js`), no framework opinion.
+`l402.js` is the L402 protocol module. One dependency (`macaroons.js`), no framework opinion.
 
 ### What It Does
 
@@ -250,6 +250,26 @@ Restart your AI tool and check that the wallet tools are available:
 Local balance: 45000 sats (spendable)
 Remote balance: 5000 sats (receivable)
 ```
+
+## Lightning Backend
+
+The L402 server needs an LND node (or any Lightning implementation with a REST/gRPC API) that can create invoices. When a client hits a protected endpoint, `l402.js` calls your node to generate a real Lightning invoice. When the client pays, your node receives the sats.
+
+**What you need:**
+- A Lightning node that can create invoices (LND, CLN, Eclair, etc.)
+- A macaroon or credential with invoice-creation permissions
+- TLS certificate for secure API access
+- At least one channel with inbound liquidity (so you can receive payments)
+
+**What you don't need:**
+- A static IP (SSH tunnels or Tailscale work fine)
+- A lot of capital (a 50,000 sat channel is enough to start)
+
+**Important: service nodes need a full Bitcoin backend.** Neutrino (compact block filters) is fine for an agent wallet that only *pays* invoices. But a service node that *creates* invoices and *receives* payments should run with Bitcoin Core or btcd as its backend. This gives you reliable chain state, proper fee estimation, and the ability to open/manage channels. A pruned Bitcoin Core node (~10GB) is sufficient — you don't need the full ~600GB unpruned chain.
+
+Setting up a sovereign Lightning node is outside the scope of this toolkit — it's a separate infrastructure concern. If you need a guide, [sovereign-app-architecture](https://github.com/EricRHadley/sovereign-app-architecture) covers the full stack: LND setup, BTCPay Server, VPS hosting, channel management, UPS protection, and graceful shutdown scripts.
+
+The key point: `l402.js` talks to LND via REST API. If your node has a REST endpoint and can create invoices, the toolkit works.
 
 ## Design Decisions
 

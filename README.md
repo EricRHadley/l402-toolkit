@@ -38,15 +38,15 @@ if (!authorized) return; // 402 challenge already sent
 
 The agent runs its own LND neutrino node — no custodial service, no API keys, no platform fees. The macaroon is baked with 3 restricted permissions: pay, decode, balance. The agent cannot open channels, send on-chain, or access the seed.
 
-### `example-server.js` — Integration Demo
+### `example-server.js` — Fortune Cookie API
 
-Minimal HTTP server showing how to wire up `l402.js`. Run it, hit the protected endpoint, see the 402 challenge.
+L402-gated fortune cookie server. Pay 10 sats, get a fortune. Demonstrates agent-friendly discovery patterns: free `/api` endpoint with service description, consumption hints, and step-by-step `l402_flow` instructions embedded in the response.
 
 ```bash
 export L402_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
-export LND_MACAROON_PATH=/path/to/admin.macaroon
+export LND_MACAROON_PATH=/path/to/invoice.macaroon
 node example-server.js
-# → http://localhost:3000/api/protected/my-resource
+# → http://localhost:3000/api/fortune
 ```
 
 ## Quick Start
@@ -60,11 +60,13 @@ npm install
 
 # Configure (see docs/ARCHITECTURE.md for full setup)
 export L402_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
-export LND_MACAROON_PATH=/path/to/your/admin.macaroon
+export LND_MACAROON_PATH=/path/to/your/invoice.macaroon
 export LND_TLS_CERT_PATH=/path/to/your/tls.cert
-export LND_REST_HOST=https://localhost:8080
+export LND_REST_HOST=https://your-lnd-node:8080
 
 node example-server.js
+# → http://localhost:3000/api (service info)
+# → http://localhost:3000/api/fortune (L402-gated, 10 sats)
 ```
 
 ### Agent (pay for resources)
@@ -123,7 +125,7 @@ Want AI agents to discover and pay for your L402 service without needing pre-wri
 ```
 l402-toolkit/
 ├── l402.js                  # L402 protocol module (server-side)
-├── example-server.js        # Minimal integration demo
+├── example-server.js        # Fortune cookie API (L402-gated demo)
 ├── package.json             # macaroons.js dependency
 ├── mcp/
 │   ├── lnd-wallet-mcp.js   # MCP agent wallet server

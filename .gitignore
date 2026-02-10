@@ -2,6 +2,7 @@ node_modules/
 mcp/node_modules/
 
 # Credentials — NEVER commit these
+credentials/
 mcp/credentials/
 *.macaroon
 tls.cert
