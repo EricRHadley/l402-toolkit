@@ -8,7 +8,7 @@ JavaScript L402 implementation for Node.js servers and AI agent wallets.
 
 ### `l402.js` — Server-Side L402 Module
 
-Drop-in L402 protocol for any Node.js HTTP server. ~300 lines, one dependency (`macaroons.js`), no framework opinion.
+Drop-in L402 protocol for any Node.js HTTP server. One dependency (`macaroons.js`), no framework opinion.
 
 - Creates Lightning invoices via LND REST API
 - Mints macaroons with per-resource caveats (not just URL-path gating)
@@ -114,6 +114,10 @@ The macaroon's identifier is the Lightning payment hash. The preimage is the onl
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full protocol walkthrough, design decisions, and agent wallet setup guide.
 
+## Making Your Service Agent-Friendly
+
+Want AI agents to discover and pay for your L402 service without needing pre-written instructions? See [docs/AGENT-DISCOVERY.md](docs/AGENT-DISCOVERY.md) for patterns that make your 402 responses self-describing — informative response bodies, consumption hints, and free discovery endpoints that let agents browse before they buy.
+
 ## Repository Structure
 
 ```
@@ -129,7 +133,8 @@ l402-toolkit/
 │   ├── neutrino-lnd.conf   # LND neutrino config (copy to ~/.lnd/)
 │   └── bake-agent-macaroon.sh  # Creates restricted macaroon
 ├── docs/
-│   └── ARCHITECTURE.md      # Protocol docs, design decisions, setup guide
+│   ├── ARCHITECTURE.md      # Protocol docs, design decisions, setup guide
+│   └── AGENT-DISCOVERY.md   # Patterns for agent-friendly L402 services
 └── LICENSE                  # MIT
 ```
 

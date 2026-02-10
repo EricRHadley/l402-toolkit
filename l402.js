@@ -70,6 +70,11 @@ function initLnd() {
         return false;
     }
 
+    if (CONFIG.secret.length < 32) {
+        console.warn('[L402] L402_SECRET is too short (minimum 32 characters). Use: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
+        return false;
+    }
+
     if (!CONFIG.lndMacaroonPath) {
         console.warn('[L402] LND_MACAROON_PATH not set — L402 disabled');
         return false;
@@ -81,15 +86,17 @@ function initLnd() {
 
         // Build HTTPS agent. LND uses a self-signed TLS certificate.
         // If a cert path is provided, trust it as a CA.
-        // The checkServerIdentity override handles connections through SSH tunnels
-        // where the hostname doesn't match the cert's SANs.
         if (CONFIG.lndTlsCertPath && fs.existsSync(CONFIG.lndTlsCertPath)) {
             const cert = fs.readFileSync(CONFIG.lndTlsCertPath);
             httpsAgent = new https.Agent({
                 ca: cert,
+                // Skip hostname verification for SSH tunnel setups where the
+                // cert's SANs (e.g., 127.0.0.1) don't match the connection
+                // hostname. Only safe because we pin the exact CA cert above.
                 checkServerIdentity: () => undefined,
             });
         } else {
+            console.warn('[L402] WARNING: No TLS cert provided (LND_TLS_CERT_PATH). Connection to LND is NOT verified.');
             httpsAgent = new https.Agent({ rejectUnauthorized: false });
         }
 

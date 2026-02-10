@@ -74,16 +74,31 @@ const CONFIG = {
 // ===========================================
 
 // Read macaroon as hex (LND REST API requires this in Grpc-Metadata-macaroon header)
-const macaroonHex = fs.readFileSync(CONFIG.macaroonPath).toString("hex");
+let macaroonHex;
+try {
+    macaroonHex = fs.readFileSync(CONFIG.macaroonPath).toString("hex");
+} catch (err) {
+    console.error(`[lnd-wallet] ERROR: Cannot read macaroon at ${CONFIG.macaroonPath}`);
+    console.error("[lnd-wallet] Run setup/bake-agent-macaroon.sh to create one, or set LND_MACAROON_PATH");
+    process.exit(1);
+}
 
 // Trust LND's self-signed cert. The checkServerIdentity override handles
 // connections through SSH tunnels where the hostname doesn't match the
 // cert's SANs (e.g., cert for 127.0.0.1 but connecting via tunnel IP).
-const tlsCert = fs.readFileSync(CONFIG.tlsCertPath);
-const httpsAgent = new https.Agent({
-    ca: tlsCert,
-    checkServerIdentity: () => undefined,
-});
+// Safe because we pin the exact CA cert.
+let httpsAgent;
+try {
+    const tlsCert = fs.readFileSync(CONFIG.tlsCertPath);
+    httpsAgent = new https.Agent({
+        ca: tlsCert,
+        checkServerIdentity: () => undefined,
+    });
+} catch (err) {
+    console.error(`[lnd-wallet] ERROR: Cannot read TLS cert at ${CONFIG.tlsCertPath}`);
+    console.error("[lnd-wallet] Copy your LND tls.cert to mcp/credentials/, or set LND_TLS_CERT_PATH");
+    process.exit(1);
+}
 
 console.error("[lnd-wallet] Connected to", CONFIG.lndHost);
 console.error("[lnd-wallet] Budget:", CONFIG.budgetSats, "sats");
