@@ -144,7 +144,7 @@ l402-toolkit/
 
 The L402 spec has existed since 2019 (originally as LSAT), but the implementation landscape is sparse:
 
-- **[Aperture](https://github.com/lightninglabs/aperture)** is a Go reverse proxy — great for gating APIs at the infrastructure level, but it can't do per-resource caveats and requires deploying a separate process
+- **[Aperture](https://github.com/lightninglabs/aperture)** is a Go reverse proxy — great for gating APIs at the infrastructure level, but it operates at the URL-path level and requires deploying a separate process
 - **[boltwall](https://github.com/tierion/boltwall)** is Express middleware — locked to Express, uses deprecated dependencies, hasn't been updated in 3 years, still uses the old "LSAT" header format
 - **[LangChainBitcoin](https://github.com/lightninglabs/LangChainBitcoin)** showed that AI agents can pay for APIs — but it's locked to LangChain/Python, has no budget enforcement, and pays invoices without verifying amounts
 
