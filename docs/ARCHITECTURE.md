@@ -317,6 +317,53 @@ The client pays once, receives a token, and reuses that token for every segment 
 
 The toolkit's `l402.js` already supports this pattern. `handleL402Auth()` doesn't care whether it's gating a JSON API response or a video segment — it validates the token against the resource ID and expiration, then returns `true` or `false`. The streaming use case is just calling the same function in a different route handler.
 
+## Client-Side Token Storage
+
+L402 tokens are bearer credentials backed by Lightning payments. Clients should treat them as **receipts** — proof that a payment was made and access was granted.
+
+### Principles
+
+**Never delete tokens.** An expired token is still a receipt. The user paid real sats for it. Keep it.
+
+**Never overwrite tokens.** A user might pay for the same resource multiple times (different sessions, different agents, renewed access). Each payment produces a distinct macaroon with its own expiry. Store all of them.
+
+**Pick the best token for access.** When the client needs a valid credential, scan all stored tokens for that resource and use the one with the furthest-out expiry that hasn't expired yet.
+
+### Recommended Storage Format
+
+Store tokens as an array per resource, keyed by the resource identifier from the macaroon's caveats:
+
+```javascript
+// Key: l402_{resourceId}
+// Value: array of receipt entries
+[
+  {
+    macaroon: "base64url-encoded-macaroon",
+    preimage: "64-char-hex-preimage",
+    expiresAt: 1770802451,         // Unix seconds, from macaroon caveat
+    storedAt: 1770788051,          // When the client stored this
+    source: "manual_payment"       // How the token was acquired
+  },
+  {
+    macaroon: "different-macaroon-from-second-payment",
+    preimage: "different-preimage",
+    expiresAt: 1770892000,
+    storedAt: 1770888400,
+    source: "url_param"
+  }
+]
+```
+
+Handle backward compatibility: if the stored value is a single object instead of an array, treat it as `[object]`.
+
+### Why This Matters
+
+**For humans:** Payment history, spending visibility, and the ability to prove "I already paid for this." Users may want to export receipts, dispute charges, or audit their spending across services.
+
+**For agents:** Autonomous purchasing decisions benefit from historical data. An agent can evaluate: How often does this service deliver after payment? Are tokens honored for their full duration? What's my spend rate? An agent with receipt history can deprioritize unreliable services and budget more effectively.
+
+**For the ecosystem:** L402 tokens are self-contained — the macaroon encodes the service (`location` field), the resource, and the expiry. A client interacting with multiple L402 services (discovered via a registry like l402.directory) accumulates a portable record of every machine-to-machine transaction. This is the foundation for service reputation without centralized review systems.
+
 ## Design Decisions
 
 **No Aperture**: Custom L402 in application code because we need per-resource caveats. Aperture only does URL-path-level gating.
