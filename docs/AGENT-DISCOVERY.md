@@ -155,6 +155,90 @@ Common failure reasons and what the agent needs to know:
 
 Each of these tells the agent exactly what went wrong and implies the recovery action.
 
+## Pattern 6: `<noscript>` Fallback for Non-JS Clients
+
+AI agents using tools like WebFetch don't execute JavaScript. If your homepage is a single-page app, agents see an empty shell. Add a `<noscript>` block near the top of your HTML with direct API pointers:
+
+```html
+<noscript>
+    <div>
+        <h2>API Access</h2>
+        <p>This service provides a machine-readable API.</p>
+        <ul>
+            <li>Service info: GET /api</li>
+            <li>Search resources: GET /api/search?q=keyword</li>
+            <li>L402 payment docs: GET /api/l402/docs</li>
+        </ul>
+    </div>
+</noscript>
+```
+
+The agent immediately sees the API entry points without needing to execute JavaScript or resort to web searching for documentation.
+
+## Pattern 7: Resolved URLs on Every Result Object
+
+When your search or listing endpoints return many results, template URLs at the bottom of the response get lost. AI tools that summarize large responses (210KB+) often truncate the end, dropping your URL templates entirely.
+
+Fix: include the fully resolved URL on each individual result object:
+
+```javascript
+// Instead of just a template at the top:
+// "url_template": "/api/resource/{id}"
+
+// Include resolved URLs on each result:
+results.map(item => ({
+    id: item.id,
+    title: item.title,
+    description: item.description,
+    l402_url: `/api/resource/${item.id}`,  // Resolved, right next to the title
+}))
+```
+
+The agent sees the exact URL to request right next to each item's title — it can't miss it, even if the response gets truncated.
+
+## Pattern 8: Response Key Ordering
+
+JSON key order equals insertion order in Node.js (and most JavaScript runtimes). When an AI tool summarizes a large JSON response, it processes keys in order and may truncate. Put machine-readable protocol hints **before** bulk data arrays:
+
+```javascript
+// Good: agent sees L402 info in the first few hundred bytes
+res.end(JSON.stringify({
+    l402: {
+        enabled: true,
+        price_sats: 10,
+        endpoint: '/api/resource/{id}',
+        flow: ['GET resource', '402 with invoice', 'Pay', 'Re-request with token']
+    },
+    results: [ /* potentially hundreds of KB of data */ ]
+}));
+
+// Bad: L402 info comes after 200KB of results — invisible to summarizers
+res.end(JSON.stringify({
+    results: [ /* 200KB */ ],
+    l402: { /* never seen */ }
+}));
+```
+
+A 244-byte `l402` object after a 230KB `results` array is invisible. The same object before the array is the first thing any client reads.
+
+## Pattern 9: Inline Protocol Flow Steps
+
+Don't rely on agents fetching a separate documentation endpoint. Most agents won't make a second request to `/docs` — they'll try to figure it out from whatever response they already have. Embed the protocol flow directly in every L402-relevant response:
+
+```javascript
+l402: {
+    price_sats: 10,
+    flow: [
+        'GET /api/resource/{id} → receive 402 with WWW-Authenticate header',
+        'Pay the Lightning invoice from the response',
+        'Re-request with Authorization: L402 {macaroon}:{preimage}',
+        'Receive the resource'
+    ]
+}
+```
+
+Include this `flow` array in search responses, detail pages, health endpoints — anywhere an agent might land. The redundancy is intentional: the agent should encounter the flow steps no matter which endpoint it hits first.
+
 ## Putting It All Together
 
 A fully agent-friendly L402 service has:
@@ -164,6 +248,10 @@ A fully agent-friendly L402 service has:
 3. **Informative 402 responses** with `token_format` instructions in the body
 4. **Consumption hints** telling agents what to do after payment
 5. **Clear error messages** that explain failures and imply recovery actions
+6. **`<noscript>` fallbacks** so non-JS clients can find your API
+7. **Resolved URLs** on every result object (not just templates)
+8. **Protocol hints before data** in response key ordering
+9. **Inline flow steps** in every L402-relevant response
 
 The test: can a fresh AI agent with a Lightning wallet — and zero prior knowledge of your service — discover what you offer, pay for a resource, and deliver it to the user? If the answer is yes, your service is agent-friendly. If the agent needs a pre-written instruction file, look at what information that file contains and embed it in your HTTP responses instead.
 

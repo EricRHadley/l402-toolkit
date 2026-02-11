@@ -271,6 +271,52 @@ Setting up a sovereign Lightning node is outside the scope of this toolkit — i
 
 The key point: `l402.js` talks to LND via REST API. If your node has a REST endpoint and can create invoices, the toolkit works.
 
+## Streaming Resources
+
+The `handleL402Auth()` function works the same way for a single API response and for each segment of a streaming resource. For video, audio, or any chunked content delivery, the pattern is the same: validate the L402 token on every request.
+
+### Why Per-Segment Validation
+
+When a client streams an HLS video, it makes dozens of HTTP requests — one for the playlist (`.m3u8`) and one for each media segment (`.ts`). Each request independently validates the L402 token:
+
+```javascript
+// Every segment request goes through the same auth check
+async function handleStreamRequest(req, res, pathname) {
+    // Extract resource ID from URL path
+    const resourceId = pathname.split('/')[3]; // e.g., /api/stream/{id}/segment_001.ts
+
+    const authorized = await l402.handleL402Auth(req, res, resourceId);
+    if (!authorized) return; // 402 challenge sent
+
+    // Serve the segment file
+    serveFile(res, pathname);
+}
+```
+
+This gives you continuous enforcement:
+- **Expiration**: A token that expires mid-stream stops working on the next segment request — no need to revoke anything
+- **Scope**: A token for resource "abc" can't be used to stream resource "def", even within the same session
+- **Sharing**: A token passed to another client still works (stateless), but only for the specific resource and only until it expires
+
+### Client-Side Integration
+
+For HLS playback, the client injects the L402 token into every segment request via the `Authorization` header. With hls.js:
+
+```javascript
+const config = {
+    xhrSetup: function(xhr, url) {
+        xhr.setRequestHeader('Authorization', `L402 ${macaroon}:${preimage}`);
+    }
+};
+const hls = new Hls(config);
+```
+
+The client pays once, receives a token, and reuses that token for every segment until it expires. No per-segment payment — just per-segment validation of the same credential.
+
+### No Additional Code Required
+
+The toolkit's `l402.js` already supports this pattern. `handleL402Auth()` doesn't care whether it's gating a JSON API response or a video segment — it validates the token against the resource ID and expiration, then returns `true` or `false`. The streaming use case is just calling the same function in a different route handler.
+
 ## Design Decisions
 
 **No Aperture**: Custom L402 in application code because we need per-resource caveats. Aperture only does URL-path-level gating.
