@@ -381,6 +381,8 @@ async function sendL402Challenge(res, resourceId, error) {
             message: error || `Pay ${CONFIG.priceSats} sats to access this resource`,
             price_sats: CONFIG.priceSats,
             resource_id: resourceId,
+            macaroon: macaroon,
+            invoice: paymentRequest,
             token_format: {
                 header: 'Authorization: L402 <macaroon>:<preimage>',
                 note: 'macaroon is the base64 string from the WWW-Authenticate header. preimage is the 64-char hex string your wallet returns after paying the invoice. Concatenate with a colon, no spaces.',
