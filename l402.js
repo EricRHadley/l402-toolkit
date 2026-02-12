@@ -380,6 +380,7 @@ async function sendL402Challenge(res, resourceId, error) {
             error: 'Payment Required',
             message: error || `Pay ${CONFIG.priceSats} sats to access this resource`,
             price_sats: CONFIG.priceSats,
+            token_expiry_seconds: CONFIG.expirySeconds,
             resource_id: resourceId,
             macaroon: macaroon,
             invoice: paymentRequest,
