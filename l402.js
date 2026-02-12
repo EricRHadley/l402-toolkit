@@ -312,12 +312,19 @@ function verifyMacaroon(macaroonB64, preimageHex, requestedResourceId) {
  *   if (!authorized) return; // 402 already sent
  *   // Serve the resource...
  *
+ * With consumption hints:
+ *   const authorized = await l402.handleL402Auth(req, res, 'video-123', {
+ *       consumption: { type: 'browser', action: 'Open the player URL' },
+ *       player_url: 'https://example.com/player?v={resource_id}&token={token}',
+ *   });
+ *
  * @param {http.IncomingMessage} req
  * @param {http.ServerResponse} res
  * @param {string} resourceId - Identifier for the resource being requested
+ * @param {Object} [options] - Optional fields to include in 402 responses (consumption hints, etc.)
  * @returns {Promise<boolean>} true if authorized, false if 402 sent
  */
-async function handleL402Auth(req, res, resourceId) {
+async function handleL402Auth(req, res, resourceId, options) {
     const authHeader = req.headers['authorization'];
 
     if (authHeader && authHeader.startsWith('L402 ')) {
@@ -326,7 +333,7 @@ async function handleL402Auth(req, res, resourceId) {
         const colonIndex = tokenPart.indexOf(':');
 
         if (colonIndex === -1) {
-            await sendL402Challenge(res, resourceId, 'Invalid token format — expected macaroon:preimage');
+            await sendL402Challenge(res, resourceId, { ...options, error: 'Invalid token format — expected macaroon:preimage' });
             return false;
         }
 
@@ -340,13 +347,13 @@ async function handleL402Auth(req, res, resourceId) {
             return true;
         } else {
             console.log(`[L402] Access denied for ${resourceId}: ${result.error}`);
-            await sendL402Challenge(res, resourceId, result.error);
+            await sendL402Challenge(res, resourceId, { ...options, error: result.error });
             return false;
         }
     }
 
     // No token provided — issue challenge
-    await sendL402Challenge(res, resourceId);
+    await sendL402Challenge(res, resourceId, options);
     return false;
 }
 
@@ -356,12 +363,28 @@ async function handleL402Auth(req, res, resourceId) {
  * The response includes:
  * - WWW-Authenticate header with macaroon and invoice (per L402 spec)
  * - JSON body with human/machine-readable payment instructions
+ * - Optional consumption hints and other fields from the options object
  *
  * @param {http.ServerResponse} res
  * @param {string} resourceId
- * @param {string} [error] - Optional error message for invalid token attempts
+ * @param {string|Object} [errorOrOptions] - Error string (backward compat) or options object
+ * @param {string} [errorOrOptions.error] - Error message for invalid token attempts
+ * @param {Object} [errorOrOptions.consumption] - Consumption hints (type, action, player_url, etc.)
+ * @param {string} [errorOrOptions.player_url] - URL template for browser-based consumption
+ * @param {string} [errorOrOptions.player_note] - Instructions for using the player URL
  */
-async function sendL402Challenge(res, resourceId, error) {
+async function sendL402Challenge(res, resourceId, errorOrOptions) {
+    // Backward compat: string arg is the error message, object arg is options
+    let error, extra;
+    if (typeof errorOrOptions === 'string') {
+        error = errorOrOptions;
+        extra = {};
+    } else if (errorOrOptions && typeof errorOrOptions === 'object') {
+        ({ error, ...extra } = errorOrOptions);
+    } else {
+        extra = {};
+    }
+
     try {
         const memo = `L402 access: ${resourceId}`;
         const { paymentHash, paymentRequest } = await createInvoice(CONFIG.priceSats, memo);
@@ -376,7 +399,8 @@ async function sendL402Challenge(res, resourceId, error) {
             'Access-Control-Allow-Headers': 'Content-Type, Authorization',
             'Access-Control-Expose-Headers': 'WWW-Authenticate',
         });
-        res.end(JSON.stringify({
+
+        const body = {
             error: 'Payment Required',
             message: error || `Pay ${CONFIG.priceSats} sats to access this resource`,
             price_sats: CONFIG.priceSats,
@@ -388,7 +412,12 @@ async function sendL402Challenge(res, resourceId, error) {
                 header: 'Authorization: L402 <macaroon>:<preimage>',
                 note: 'macaroon is the base64 string from the WWW-Authenticate header. preimage is the 64-char hex string your wallet returns after paying the invoice. Concatenate with a colon, no spaces.',
             },
-        }));
+        };
+
+        // Merge optional fields (consumption hints, player_url, etc.)
+        Object.assign(body, extra);
+
+        res.end(JSON.stringify(body));
 
         console.log(`[L402] Challenge issued: ${resourceId} (${CONFIG.priceSats} sats)`);
 

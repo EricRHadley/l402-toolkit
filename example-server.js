@@ -116,7 +116,12 @@ const server = http.createServer(async (req, res) => {
             return;
         }
 
-        const authorized = await l402.handleL402Auth(req, res, 'fortune');
+        const authorized = await l402.handleL402Auth(req, res, 'fortune', {
+            consumption: {
+                type: 'api_response',
+                action: 'Read the fortune field from the JSON response.',
+            },
+        });
         if (!authorized) return;
 
         const fortune = FORTUNES[Math.floor(Math.random() * FORTUNES.length)];

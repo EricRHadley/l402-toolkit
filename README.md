@@ -42,6 +42,10 @@ The agent runs its own LND neutrino node — no custodial service, no API keys, 
 
 L402-gated fortune cookie server. Pay 10 sats, get a fortune. Demonstrates agent-friendly discovery patterns: free `/api` endpoint with service description, consumption hints, and step-by-step `l402_flow` instructions embedded in the response.
 
+### `example-catalog-server.js` — Multi-Resource Catalog
+
+L402-gated catalog with multiple resource types. Demonstrates the full agent discovery pattern: free browsing, search, consumption hints in 402 responses, resolved URLs on every result, and different consumption types (API response, browser, download, display).
+
 ```bash
 export L402_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
 export LND_MACAROON_PATH=/path/to/invoice.macaroon
@@ -118,14 +122,17 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full protocol walkthrou
 
 ## Making Your Service Agent-Friendly
 
-Want AI agents to discover and pay for your L402 service without needing pre-written instructions? See [docs/AGENT-DISCOVERY.md](docs/AGENT-DISCOVERY.md) for patterns that make your 402 responses self-describing — informative response bodies, consumption hints, and free discovery endpoints that let agents browse before they buy.
+Want AI agents to discover and pay for your L402 service without needing pre-written instructions? See [docs/AGENT-DISCOVERY.md](docs/AGENT-DISCOVERY.md) for 11 patterns that make your 402 responses self-describing — informative response bodies, consumption hints, free discovery endpoints, and service directory registration.
+
+For a narrative walkthrough showing these patterns in action — how an AI agent discovered, paid for, and consumed an L402 service end-to-end with zero pre-configuration — see [docs/AGENT-WALKTHROUGH.md](docs/AGENT-WALKTHROUGH.md).
 
 ## Repository Structure
 
 ```
 l402-toolkit/
 ├── l402.js                  # L402 protocol module (server-side)
-├── example-server.js        # Fortune cookie API (L402-gated demo)
+├── example-server.js        # Fortune cookie API (single-resource demo)
+├── example-catalog-server.js # Media catalog (multi-resource demo)
 ├── package.json             # macaroons.js dependency
 ├── mcp/
 │   ├── lnd-wallet-mcp.js   # MCP agent wallet server
@@ -136,7 +143,8 @@ l402-toolkit/
 │   └── bake-agent-macaroon.sh  # Creates restricted macaroon
 ├── docs/
 │   ├── ARCHITECTURE.md      # Protocol docs, design decisions, setup guide
-│   └── AGENT-DISCOVERY.md   # Patterns for agent-friendly L402 services
+│   ├── AGENT-DISCOVERY.md   # 11 patterns for agent-friendly L402 services
+│   └── AGENT-WALKTHROUGH.md # End-to-end agent narrative (discovery → pay → consume)
 └── LICENSE                  # MIT
 ```
 

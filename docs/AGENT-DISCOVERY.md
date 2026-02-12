@@ -270,6 +270,48 @@ These fields should also appear in your root endpoint (`/api`) so agents can eva
 }
 ```
 
+## Pattern 11: Service Directory Registration
+
+The patterns above make your service self-describing *once an agent finds it*. But how does the agent find your service in the first place?
+
+Service directories are machine-readable registries that list L402 services with their API endpoints, pricing, and capabilities. They solve the cold-start problem: an agent with a Lightning wallet and no bookmarks can query a directory to discover services matching a need.
+
+### What a Directory Entry Looks Like
+
+A directory entry is essentially your Pattern 1 self-describing endpoint, submitted to a registry:
+
+```json
+{
+    "name": "Weather Data API",
+    "description": "Pay-per-query weather forecasts. 10 sats per city.",
+    "api_url": "https://weather.example.com/api",
+    "protocol": "L402",
+    "price_sats": 10,
+    "capabilities": ["forecast", "historical", "alerts"]
+}
+```
+
+The `api_url` points to your free root endpoint. An agent that discovers your service through the directory hits that URL first, reads the self-describing response, and proceeds through the normal L402 flow.
+
+### Why This Matters for Agents
+
+Without directories, an agent needs one of:
+- A hardcoded URL in its instructions
+- A web search that returns your service (unreliable for API discovery)
+- A human telling it where to go
+
+Directories provide programmatic discovery: the agent queries an API, gets a list of services matching criteria, and picks one. This is the machine-to-machine equivalent of a search engine — structured data instead of HTML pages.
+
+### Existing Implementations
+
+[l402.directory](https://l402.directory) is one implementation of this concept, providing a searchable registry of L402 services with a JSON API. The pattern itself is generic — any service that maintains a machine-readable list of L402 endpoints with their capabilities and pricing serves as a directory.
+
+### Design Considerations
+
+- **Directories should be free to query.** If the directory itself requires payment to browse, agents can't discover services without already having a service relationship — a chicken-and-egg problem.
+- **Use resolved URLs.** The `api_url` field should be a complete, directly-requestable URL (Pattern 7 applies here too).
+- **Keep entries minimal.** A directory entry is a pointer, not documentation. The service's own `/api` endpoint provides the full description.
+
 ## Putting It All Together
 
 A fully agent-friendly L402 service has:
@@ -284,9 +326,12 @@ A fully agent-friendly L402 service has:
 8. **Protocol hints before data** in response key ordering
 9. **Inline flow steps** in every L402-relevant response
 10. **Token economics** (`price_sats` + `token_expiry_seconds`) in every 402 body
+11. **Directory registration** so agents can discover your service programmatically
 
-The test: can a fresh AI agent with a Lightning wallet — and zero prior knowledge of your service — discover what you offer, pay for a resource, and deliver it to the user? If the answer is yes, your service is agent-friendly. If the agent needs a pre-written instruction file, look at what information that file contains and embed it in your HTTP responses instead.
+The test: can a fresh AI agent with a Lightning wallet — and zero prior knowledge of your service or its URL — discover what you offer, pay for a resource, and deliver it to the user? If the answer is yes, your service is agent-friendly. If the agent needs a pre-written instruction file, look at what information that file contains and embed it in your HTTP responses instead.
 
-## Example: Complete Agent-Friendly Server
+For a narrative walkthrough showing these patterns in action — how an AI agent discovered, paid for, and consumed an L402 service end-to-end — see [AGENT-WALKTHROUGH.md](AGENT-WALKTHROUGH.md).
 
-See `example-server.js` in this repo for a minimal implementation of these patterns. The `/` endpoint returns a self-describing JSON document with the full L402 flow, and the 402 responses include `token_format` instructions.
+## Examples
+
+See `example-server.js` for a minimal single-resource implementation of these patterns. See `example-catalog-server.js` for a multi-resource catalog demonstrating free browsing, search, consumption hints in 402 responses, and different consumption types.
