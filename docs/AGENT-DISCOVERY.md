@@ -239,6 +239,37 @@ l402: {
 
 Include this `flow` array in search responses, detail pages, health endpoints — anywhere an agent might land. The redundancy is intentional: the agent should encounter the flow steps no matter which endpoint it hits first.
 
+## Pattern 10: Token Economics in the 402 Body
+
+Agents make economic decisions before paying. If the 402 response only contains the invoice, the agent must decode the BOLT11 to learn the price and has no idea how long the token lasts. Include both upfront:
+
+```javascript
+res.end(JSON.stringify({
+    error: 'Payment Required',
+    price_sats: CONFIG.priceSats,
+    token_expiry_seconds: CONFIG.expirySeconds,
+    resource_id: resourceId,
+    macaroon: macaroon,
+    invoice: paymentRequest,
+    token_format: {
+        header: 'Authorization: L402 <macaroon>:<preimage>',
+    },
+}));
+```
+
+`price_sats` and `token_expiry_seconds` together tell the agent the full cost: "10 sats for 4 hours of access." Without `token_expiry_seconds`, an agent might assume a token is single-use or permanent — both wrong. The agent needs this for budget calculations (e.g., "I have 500 sats, can I afford to explore 10 resources at 10 sats each with 4-hour windows?").
+
+These fields should also appear in your root endpoint (`/api`) so agents can evaluate economics before triggering a 402:
+
+```javascript
+{
+    "protocol": "L402",
+    "price_sats": 10,
+    "token_expiry_seconds": 14400,
+    "endpoints": { ... }
+}
+```
+
 ## Putting It All Together
 
 A fully agent-friendly L402 service has:
@@ -252,6 +283,7 @@ A fully agent-friendly L402 service has:
 7. **Resolved URLs** on every result object (not just templates)
 8. **Protocol hints before data** in response key ordering
 9. **Inline flow steps** in every L402-relevant response
+10. **Token economics** (`price_sats` + `token_expiry_seconds`) in every 402 body
 
 The test: can a fresh AI agent with a Lightning wallet — and zero prior knowledge of your service — discover what you offer, pay for a resource, and deliver it to the user? If the answer is yes, your service is agent-friendly. If the agent needs a pre-written instruction file, look at what information that file contains and embed it in your HTTP responses instead.
 
