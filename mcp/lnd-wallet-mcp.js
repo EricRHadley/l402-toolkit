@@ -206,7 +206,7 @@ server.registerTool(
 server.registerTool(
     "pay_invoice",
     {
-        description: "Pay a BOLT11 Lightning invoice. Returns the payment preimage (hex). Checks budget before paying. Use decode_invoice first to verify the amount.",
+        description: "Pay a BOLT11 Lightning invoice. Returns the payment preimage (hex). Checks budget before paying. Routing fees are tracked and counted against the budget. Use decode_invoice first to verify the amount.",
         inputSchema: {
             invoice: z.string().describe("BOLT11 invoice string to pay"),
         },
@@ -242,25 +242,35 @@ server.registerTool(
             // 4. Extract preimage (LND returns base64, L402 needs hex)
             const preimageHex = Buffer.from(result.payment_preimage, "base64").toString("hex");
 
-            // 5. Record in spending log
-            log.totalSpentSats += amountSats;
+            // 5. Extract routing fees from payment route (msat precision)
+            const feeMsat = parseInt(result.payment_route?.total_fees_msat || "0");
+            const feeSats = Math.ceil(feeMsat / 1000);
+            const totalCostSats = amountSats + feeSats;
+
+            // 6. Record in spending log (total cost = invoice + routing fees)
+            log.totalSpentSats += totalCostSats;
             log.payments.push({
                 invoice: invoice.substring(0, 40) + "...",
                 amountSats,
+                feeMsat,
+                feeSats,
+                totalCostSats,
                 preimage: preimageHex,
                 description: decoded.description || "",
                 timestamp: new Date().toISOString(),
             });
             saveSpendingLog(log);
 
-            console.error(`[lnd-wallet] Paid ${amountSats} sats. Total: ${log.totalSpentSats}/${CONFIG.budgetSats}`);
+            console.error(`[lnd-wallet] Paid ${amountSats} sats + ${feeMsat} msat fee = ${totalCostSats} total sats. Budget: ${log.totalSpentSats}/${CONFIG.budgetSats}`);
 
             const text = [
                 `Payment successful!`,
                 `Preimage: ${preimageHex}`,
                 `Amount: ${amountSats} sats`,
+                feeMsat > 0 ? `Routing fee: ${feeMsat} msat (${feeSats} sat${feeSats !== 1 ? 's' : ''})` : null,
+                feeMsat > 0 ? `Total cost: ${totalCostSats} sats` : null,
                 `Remaining budget: ${CONFIG.budgetSats - log.totalSpentSats} sats`,
-            ].join("\n");
+            ].filter(Boolean).join("\n");
             return { content: [{ type: "text", text }] };
         } catch (err) {
             return { content: [{ type: "text", text: `Payment error: ${err.message}` }] };
@@ -310,7 +320,8 @@ server.registerTool(
         if (log.payments.length > 0) {
             lines.push("", "Recent payments:");
             for (const p of log.payments.slice(-5)) {
-                lines.push(`  ${p.timestamp} - ${p.amountSats} sats - ${p.description}`);
+                const fee = p.feeMsat ? ` + ${p.feeMsat} msat fee` : (p.feeSats ? ` + ${p.feeSats} sat fee` : "");
+                lines.push(`  ${p.timestamp} - ${p.amountSats} sats${fee} - ${p.description}`);
             }
         }
         return { content: [{ type: "text", text: lines.join("\n") }] };
