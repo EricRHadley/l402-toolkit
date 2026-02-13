@@ -330,7 +330,7 @@ A fully agent-friendly L402 service has:
 
 The test: can a fresh AI agent with a Lightning wallet — and zero prior knowledge of your service or its URL — discover what you offer, pay for a resource, and deliver it to the user? If the answer is yes, your service is agent-friendly. If the agent needs a pre-written instruction file, look at what information that file contains and embed it in your HTTP responses instead.
 
-For a narrative walkthrough showing these patterns in action — how an AI agent discovered, paid for, and consumed an L402 service end-to-end — see [AGENT-WALKTHROUGH.md](AGENT-WALKTHROUGH.md).
+In practice, roughly 20% of an agent's success comes from the L402 protocol itself (402 status code, `WWW-Authenticate` header, preimage verification). The other 80% comes from implementation decisions above the spec — free browsing tiers, self-documenting 402 bodies, consumption hints, resolved URLs, token economics. The protocol provides the payment rails; these patterns provide the user experience.
 
 ## Examples
 

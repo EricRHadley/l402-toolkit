@@ -124,8 +124,6 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full protocol walkthrou
 
 Want AI agents to discover and pay for your L402 service without needing pre-written instructions? See [docs/AGENT-DISCOVERY.md](docs/AGENT-DISCOVERY.md) for 11 patterns that make your 402 responses self-describing — informative response bodies, consumption hints, free discovery endpoints, and service directory registration.
 
-For a narrative walkthrough showing these patterns in action — how an AI agent discovered, paid for, and consumed an L402 service end-to-end with zero pre-configuration — see [docs/AGENT-WALKTHROUGH.md](docs/AGENT-WALKTHROUGH.md).
-
 ## Repository Structure
 
 ```
@@ -143,8 +141,7 @@ l402-toolkit/
 │   └── bake-agent-macaroon.sh  # Creates restricted macaroon
 ├── docs/
 │   ├── ARCHITECTURE.md      # Protocol docs, design decisions, setup guide
-│   ├── AGENT-DISCOVERY.md   # 11 patterns for agent-friendly L402 services
-│   └── AGENT-WALKTHROUGH.md # End-to-end agent narrative (discovery → pay → consume)
+│   └── AGENT-DISCOVERY.md   # 11 patterns for agent-friendly L402 services
 └── LICENSE                  # MIT
 ```
 

@@ -155,6 +155,7 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({
             l402: {
                 price_sats: l402.CONFIG.priceSats,
+                token_expiry_seconds: l402.CONFIG.expirySeconds,
                 endpoint: '/api/resource/{id}',
                 flow: [
                     'GET /api/resource/{id} → receive 402 with invoice',
