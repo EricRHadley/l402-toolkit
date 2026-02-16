@@ -161,6 +161,15 @@ This toolkit is:
 - **Minimal** — l402.js has 1 dependency, MCP server has 2
 - **Maintained** — current L402 spec terminology, actively developed
 
+## Live in Production
+
+This toolkit powers real, mainnet L402 services:
+
+- **[l402.directory](https://l402.directory)** — Open service registry for L402-enabled APIs. Discovers services, verifies they accept real Lightning payments, and tracks uptime. Free discovery API at `GET /api`.
+- **[hyperdope.com](https://hyperdope.com)** — Lightning-gated video content. Pay 10 sats per video via L402, streamed over HLS with token-authenticated segments.
+
+Both services run `l402.js` from this toolkit for invoice creation, macaroon minting, and token verification. The directory's health checker uses the MCP agent wallet to pay real invoices and verify services end-to-end.
+
 ## License
 
 MIT
