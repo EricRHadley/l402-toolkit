@@ -334,14 +334,9 @@ server.registerTool(
     },
     async ({ payment_hash }) => {
         try {
-            // LND REST expects the r_hash as URL-safe base64 in the path
-            const rHashBase64 = Buffer.from(payment_hash, "hex")
-                .toString("base64")
-                .replace(/\+/g, "-")
-                .replace(/\//g, "_")
-                .replace(/=+$/, "");
-
-            const result = await lndRequest("GET", `/v1/invoice/${rHashBase64}`);
+            // LND v2 lookup expects standard base64 payment_hash as query param (with padding)
+            const rHashBase64 = Buffer.from(payment_hash, "hex").toString("base64");
+            const result = await lndRequest("GET", `/v2/invoices/lookup?payment_hash=${encodeURIComponent(rHashBase64)}`);
 
             const settled = result.state === "SETTLED" || result.settled === true;
             const amountSats = parseInt(result.value || "0");
