@@ -3,14 +3,15 @@
 # Bake a restricted LND macaroon for the agent wallet.
 #
 # This creates a macaroon that can ONLY:
-#   - Pay invoices (SendPaymentSync)
-#   - Decode invoices (DecodePayReq)
-#   - Check channel balance (ChannelBalance)
+#   - Pay invoices (offchain:write)
+#   - Decode invoices (offchain:read)
+#   - Check channel balance (info:read)
+#   - Create invoices to receive payment (invoices:write)
+#   - Check invoice settlement status (invoices:read)
 #
 # The agent CANNOT:
 #   - Open or close channels
 #   - Send on-chain funds
-#   - Create invoices
 #   - Access the wallet seed
 #   - List or manage peers
 #
@@ -39,14 +40,16 @@ fi
 mkdir -p "$(dirname "$OUTPUT")"
 
 echo "Baking agent macaroon with restricted permissions..."
-echo "  Allowed: SendPaymentSync, DecodePayReq, ChannelBalance"
+echo "  Allowed: offchain (pay/decode), info (balance), invoices (create/check)"
 echo "  Output:  $OUTPUT"
 echo ""
 
 $LNCLI bakemacaroon \
-    uri:/lnrpc.Lightning/SendPaymentSync \
-    uri:/lnrpc.Lightning/DecodePayReq \
-    uri:/lnrpc.Lightning/ChannelBalance \
+    offchain:write \
+    offchain:read \
+    info:read \
+    invoices:write \
+    invoices:read \
     --save_to "$OUTPUT"
 
 # Restrict file permissions — this is a bearer credential

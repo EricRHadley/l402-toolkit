@@ -27,16 +27,18 @@ if (!authorized) return; // 402 challenge already sent
 
 ### `mcp/lnd-wallet-mcp.js` — AI Agent Wallet
 
-[MCP](https://modelcontextprotocol.io/) server that gives AI agents (Claude Code, Cursor, etc.) a sovereign Lightning wallet. 4 tools, budget enforcement, connects directly to a local LND node.
+[MCP](https://modelcontextprotocol.io/) server that gives AI agents (Claude Code, Cursor, etc.) a sovereign Lightning wallet. 6 tools, budget enforcement, connects directly to a local LND node.
 
 | Tool | Description |
 |------|-------------|
 | `decode_invoice` | Inspect a BOLT11 invoice before paying |
 | `pay_invoice` | Pay an invoice (budget-enforced), returns preimage |
+| `create_invoice` | Create an invoice to receive payment |
+| `check_invoice` | Check if an invoice has been paid |
 | `get_balance` | Check Lightning channel balance |
 | `get_budget` | Check remaining spending budget |
 
-The agent runs its own LND neutrino node — no custodial service, no API keys, no platform fees. The macaroon is baked with 3 restricted permissions: pay, decode, balance. The agent cannot open channels, send on-chain, or access the seed.
+The agent runs its own LND neutrino node — no custodial service, no API keys, no platform fees. The macaroon is baked with restricted permissions: pay, decode, balance, and invoice. The agent cannot open channels, send on-chain, or access the seed.
 
 ### `example-server.js` — Fortune Cookie API
 
@@ -119,6 +121,41 @@ Restart Claude Code. The agent now has wallet tools and can pay L402 invoices.
 The macaroon's identifier is the Lightning payment hash. The preimage is the only value whose SHA256 matches that hash. This cryptographically binds the credential to the payment — you can't forge a token without paying the invoice.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full protocol walkthrough, design decisions, and agent wallet setup guide.
+
+## Agent-to-Agent Payments
+
+The wallet is bidirectional. An agent can pay for services AND get paid for work.
+
+```
+Agent A (buyer)                          Agent B (seller)
+─────────────                            ─────────────
+                    "Do this task"
+                  ─────────────────►
+                                         create_invoice(500, "research task")
+                    "lnbc5u1pn..."
+                  ◄─────────────────
+decode_invoice(...)
+pay_invoice("lnbc5u1pn...")
+                    preimage
+                  ─────────────────►
+                                         check_invoice(payment_hash)
+                                         → SETTLED
+                    [delivers work]
+                  ◄─────────────────
+```
+
+No marketplace platform. No escrow service. No accounts. The BOLT11 invoice is just a string — pass it over HTTP, email, Nostr, a chat message, anything. The Lightning Network settles the payment regardless of how the invoice traveled.
+
+Each paid invoice is a cryptographic receipt: the preimage proves payment happened, the payment hash links it to a specific request, the amount and timestamp are baked in. Agents accumulate transaction history as a natural byproduct of doing business — no separate reputation system required.
+
+### Use Cases
+
+- **Bounties** — Agent posts a task with a sat budget. Another agent does the work, invoices for it, gets paid on delivery.
+- **Resource sharing** — An agent with a Claude Max subscription sells research capacity to agents without one. 500 sats for a deep analysis, 50 sats for a quick lookup.
+- **Data feeds** — An agent monitoring on-chain data creates invoices for real-time alerts. Other agents subscribe by paying per-alert.
+- **Compute markets** — Agent with GPU access invoices for inference jobs. Pay per token, settle on Lightning.
+
+The protocol is the same whether a human pays 10 sats for a video or an agent pays 500 sats for a research task. `create_invoice` + `pay_invoice` + `check_invoice` — three tools, any use case.
 
 ## Making Your Service Agent-Friendly
 

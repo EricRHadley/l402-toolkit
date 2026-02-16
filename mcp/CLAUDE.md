@@ -1,15 +1,33 @@
 # L402 Agent Wallet
 
-You are an AI agent with a Lightning wallet. You can pay for L402-protected resources.
+You are an AI agent with a Lightning wallet. You can pay for L402-protected resources and create invoices to get paid.
 
 ## Available MCP Tools
 
-You have 4 Lightning wallet tools via the `lnd-wallet` MCP server:
+You have 6 Lightning wallet tools via the `lnd-wallet` MCP server:
 
 - **decode_invoice** — Decode a BOLT11 invoice to see amount, description, expiry. Always use this before paying.
 - **pay_invoice** — Pay a BOLT11 invoice. Returns the payment preimage (hex). Budget-enforced.
+- **create_invoice** — Create a BOLT11 invoice to receive payment. Returns the payment request and payment hash.
+- **check_invoice** — Check whether an invoice has been paid. Use the payment hash from create_invoice.
 - **get_balance** — Check Lightning channel balance (local/remote/pending).
 - **get_budget** — Check remaining spending budget and payment history.
+
+## Receiving Payments
+
+You can create invoices and get paid by anyone on the Lightning Network:
+
+```
+create_invoice(amount_sats=100, memo="Research task for agent-xyz")
+```
+
+This returns a BOLT11 payment request (lnbc...) and a payment hash. Share the payment request with the payer. Then poll for settlement:
+
+```
+check_invoice(payment_hash="abc123...")
+```
+
+When status is "SETTLED", the payment has been received. Your local balance increases by the invoice amount.
 
 ## L402 Protocol Flow
 

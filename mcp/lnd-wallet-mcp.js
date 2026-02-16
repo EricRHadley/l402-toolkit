@@ -10,16 +10,17 @@
  * Tools provided:
  *   - decode_invoice  — Inspect a BOLT11 invoice before paying
  *   - pay_invoice     — Pay an invoice (budget-enforced)
+ *   - create_invoice  — Create a BOLT11 invoice to receive payment
+ *   - check_invoice   — Check if an invoice has been paid
  *   - get_balance     — Check channel balance
  *   - get_budget      — Check remaining spending budget
  *
  * Security model:
  *   The LND macaroon should be baked with minimal permissions:
- *     lncli bakemacaroon uri:/lnrpc.Lightning/SendPaymentSync \
- *                        uri:/lnrpc.Lightning/DecodePayReq \
- *                        uri:/lnrpc.Lightning/ChannelBalance
+ *     lncli bakemacaroon offchain:write offchain:read info:read \
+ *                        invoices:write invoices:read
  *   This prevents the agent from opening channels, sending on-chain funds,
- *   creating invoices, or accessing the wallet seed.
+ *   or accessing the wallet seed.
  *
  * Budget enforcement:
  *   The MCP server tracks spending in a local JSON file and refuses to pay
@@ -274,6 +275,91 @@ server.registerTool(
             return { content: [{ type: "text", text }] };
         } catch (err) {
             return { content: [{ type: "text", text: `Payment error: ${err.message}` }] };
+        }
+    }
+);
+
+// --- Tool: create_invoice ---
+server.registerTool(
+    "create_invoice",
+    {
+        description: "Create a BOLT11 Lightning invoice to receive payment. Returns the payment request (invoice string) and the payment hash for tracking. The invoice is payable by anyone on the Lightning Network.",
+        inputSchema: {
+            amount_sats: z.number().int().positive().describe("Amount in satoshis to request"),
+            memo: z.string().optional().describe("Description attached to the invoice (visible to payer)"),
+            expiry_seconds: z.number().int().optional().describe("Invoice expiry in seconds (default: 3600 = 1 hour)"),
+        },
+    },
+    async ({ amount_sats, memo, expiry_seconds }) => {
+        try {
+            const body = {
+                value: String(amount_sats),
+            };
+            if (memo) body.memo = memo;
+            if (expiry_seconds) body.expiry = String(expiry_seconds);
+
+            const result = await lndRequest("POST", "/v1/invoices", body);
+
+            const paymentRequest = result.payment_request;
+            const rHashHex = Buffer.from(result.r_hash, "base64").toString("hex");
+
+            console.error(`[lnd-wallet] Created invoice: ${amount_sats} sats, r_hash=${rHashHex.substring(0, 16)}...`);
+
+            const text = [
+                `Invoice created!`,
+                `Amount: ${amount_sats} sats`,
+                memo ? `Memo: ${memo}` : null,
+                `Payment request: ${paymentRequest}`,
+                `Payment hash: ${rHashHex}`,
+                `Expiry: ${expiry_seconds || 3600} seconds`,
+                ``,
+                `Share the payment request (lnbc...) with the payer.`,
+                `Use check_invoice with the payment hash to verify settlement.`,
+            ].filter(Boolean).join("\n");
+            return { content: [{ type: "text", text }] };
+        } catch (err) {
+            return { content: [{ type: "text", text: `Error creating invoice: ${err.message}` }] };
+        }
+    }
+);
+
+// --- Tool: check_invoice ---
+server.registerTool(
+    "check_invoice",
+    {
+        description: "Check whether a Lightning invoice has been paid. Returns settlement status, amount, and settle timestamp. Use the payment hash from create_invoice.",
+        inputSchema: {
+            payment_hash: z.string().describe("Payment hash (hex) from create_invoice"),
+        },
+    },
+    async ({ payment_hash }) => {
+        try {
+            // LND REST expects the r_hash as URL-safe base64 in the path
+            const rHashBase64 = Buffer.from(payment_hash, "hex")
+                .toString("base64")
+                .replace(/\+/g, "-")
+                .replace(/\//g, "_")
+                .replace(/=+$/, "");
+
+            const result = await lndRequest("GET", `/v1/invoice/${rHashBase64}`);
+
+            const settled = result.state === "SETTLED" || result.settled === true;
+            const amountSats = parseInt(result.value || "0");
+            const amountPaidSats = parseInt(result.amt_paid_sat || "0");
+
+            const text = [
+                `Status: ${settled ? "SETTLED (paid)" : result.state || "OPEN (unpaid)"}`,
+                `Amount requested: ${amountSats} sats`,
+                settled ? `Amount received: ${amountPaidSats} sats` : null,
+                result.memo ? `Memo: ${result.memo}` : null,
+                settled && result.settle_date !== "0" ? `Settled at: ${new Date(parseInt(result.settle_date) * 1000).toISOString()}` : null,
+                `Created: ${new Date(parseInt(result.creation_date) * 1000).toISOString()}`,
+                !settled ? `Payment hash: ${payment_hash}` : null,
+                !settled ? `\nInvoice is still waiting for payment.` : null,
+            ].filter(Boolean).join("\n");
+            return { content: [{ type: "text", text }] };
+        } catch (err) {
+            return { content: [{ type: "text", text: `Error checking invoice: ${err.message}` }] };
         }
     }
 );
