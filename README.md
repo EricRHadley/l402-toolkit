@@ -13,6 +13,7 @@ Drop-in L402 protocol for any Node.js HTTP server. One dependency (`macaroons.js
 - Creates Lightning invoices via LND REST API
 - Mints macaroons with per-resource caveats (not just URL-path gating)
 - Verifies tokens statelessly — no database, just cryptography
+- Inspects tokens client-side — `getTokenInfo()` reads expiry and resource without verification
 - Works with `http.createServer()`, Express, Fastify, or anything else
 
 ```javascript
@@ -159,7 +160,7 @@ The protocol is the same whether a human pays 10 sats for a video or an agent pa
 
 ## Making Your Service Agent-Friendly
 
-Want AI agents to discover and pay for your L402 service without needing pre-written instructions? See [docs/AGENT-DISCOVERY.md](docs/AGENT-DISCOVERY.md) for 11 patterns that make your 402 responses self-describing — informative response bodies, consumption hints, free discovery endpoints, and service directory registration.
+Want AI agents to discover and pay for your L402 service without needing pre-written instructions? See [docs/AGENT-DISCOVERY.md](docs/AGENT-DISCOVERY.md) for 12 patterns that make your 402 responses self-describing — informative response bodies, consumption hints, free discovery endpoints, service directory registration, and token lifecycle management.
 
 ## Repository Structure
 

@@ -431,6 +431,43 @@ async function sendL402Challenge(res, resourceId, errorOrOptions) {
 }
 
 // ===========================================
+// Token Inspection
+// ===========================================
+
+/**
+ * Extract caveat info from a macaroon without verifying it.
+ * Useful for client-side token management: check expiry before making a request,
+ * pick the best unexpired token from a cache, decide whether to re-authenticate.
+ *
+ * Note: expires_at and resource_id are caveats added by this toolkit's createMacaroon().
+ * They are NOT part of the L402 spec — third-party L402 services may not include them.
+ * If you built your server with this toolkit's l402.js, your tokens will have these fields.
+ *
+ * @param {string} macaroonBase64 - Base64-encoded serialized macaroon
+ * @returns {{resourceId: string|null, expiresAt: number|null, service: string|null}|null}
+ */
+function getTokenInfo(macaroonBase64) {
+    try {
+        const macaroon = MacaroonsBuilder.deserialize(macaroonBase64);
+        const info = { resourceId: null, expiresAt: null, service: null };
+        for (const caveat of macaroon.caveatPackets) {
+            if (caveat.type !== 3) continue; // type 3 = first-party caveat in macaroons.js
+            const raw = caveat.getValueAsText();
+            const eq = raw.indexOf('=');
+            if (eq === -1) continue;
+            const key = raw.substring(0, eq).trim();
+            const val = raw.substring(eq + 1).trim();
+            if (key === 'resource_id') info.resourceId = val;
+            else if (key === 'expires_at') info.expiresAt = parseInt(val);
+            else if (key === 'service') info.service = val;
+        }
+        return info;
+    } catch {
+        return null;
+    }
+}
+
+// ===========================================
 // Exports
 // ===========================================
 
@@ -441,5 +478,6 @@ module.exports = {
     createMacaroon,
     verifyMacaroon,
     sendL402Challenge,
+    getTokenInfo,
     CONFIG,
 };

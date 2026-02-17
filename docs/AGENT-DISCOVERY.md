@@ -312,6 +312,61 @@ Directories provide programmatic discovery: the agent queries an API, gets a lis
 - **Use resolved URLs.** The `api_url` field should be a complete, directly-requestable URL (Pattern 7 applies here too).
 - **Keep entries minimal.** A directory entry is a pointer, not documentation. The service's own `/api` endpoint provides the full description.
 
+## Pattern 12: Token Lifecycle Management
+
+An agent paid for a token. Now what? How does it know when the token expires? How does it avoid wasting a round-trip on an expired token? How does it re-authenticate?
+
+### Checking Token Expiry
+
+If the service uses this toolkit's `l402.js`, tokens include an `expires_at` caveat. Use `getTokenInfo()` to read it without making a network request:
+
+```javascript
+const l402 = require('./l402');
+
+const info = l402.getTokenInfo(savedMacaroon);
+if (info && info.expiresAt) {
+    const secondsLeft = info.expiresAt - Math.floor(Date.now() / 1000);
+    if (secondsLeft <= 0) {
+        // Token expired — need to re-authenticate
+    } else if (secondsLeft < 60) {
+        // Expiring soon — re-authenticate proactively
+    }
+}
+```
+
+**Important**: `expires_at` is a caveat added by this toolkit, not part of the L402 spec. Third-party L402 services may not include it. If the field is missing, the only way to check expiry is to make a request and see if you get a 402 back.
+
+### Client-Side Token Cache
+
+Agents that interact with multiple L402 services should cache tokens by resource ID:
+
+```javascript
+// Store after each successful payment
+tokenCache[resourceId] = {
+    macaroon: macaroonBase64,
+    preimage: preimageHex,
+    expiresAt: info.expiresAt,  // may be null for non-toolkit services
+};
+
+// Before each request, check for a valid cached token
+const cached = tokenCache[resourceId];
+if (cached && cached.expiresAt && cached.expiresAt > Date.now() / 1000) {
+    // Use cached token — skip the 402 round-trip
+    headers['Authorization'] = `L402 ${cached.macaroon}:${cached.preimage}`;
+}
+```
+
+### Re-Authentication Flow
+
+L402 tokens are stateless — the server has no session to extend or renew. When a token expires, the flow is identical to the first time:
+
+1. Request the resource (no token or expired token)
+2. Get 402 with a new invoice
+3. Pay the new invoice
+4. Use the new macaroon:preimage token
+
+There is no "refresh" endpoint. No "renew" API. You just pay again. This is by design — the server doesn't track sessions, so it can't extend one. The simplicity is the feature.
+
 ## Putting It All Together
 
 A fully agent-friendly L402 service has:
@@ -327,10 +382,11 @@ A fully agent-friendly L402 service has:
 9. **Inline flow steps** in every L402-relevant response
 10. **Token economics** (`price_sats` + `token_expiry_seconds`) in every 402 body
 11. **Directory registration** so agents can discover your service programmatically
+12. **Token lifecycle management** — expiry checking, client-side caching, re-authentication
 
 The test: can a fresh AI agent with a Lightning wallet — and zero prior knowledge of your service or its URL — discover what you offer, pay for a resource, and deliver it to the user? If the answer is yes, your service is agent-friendly. If the agent needs a pre-written instruction file, look at what information that file contains and embed it in your HTTP responses instead.
 
-In practice, roughly 20% of an agent's success comes from the L402 protocol itself (402 status code, `WWW-Authenticate` header, preimage verification). The other 80% comes from implementation decisions above the spec — free browsing tiers, self-documenting 402 bodies, consumption hints, resolved URLs, token economics. The protocol provides the payment rails; these patterns provide the user experience.
+In practice, roughly 20% of an agent's success comes from the L402 protocol itself (402 status code, `WWW-Authenticate` header, preimage verification). The other 80% comes from implementation decisions above the spec — free browsing tiers, self-documenting 402 bodies, consumption hints, resolved URLs, token economics, lifecycle management. The protocol provides the payment rails; these patterns provide the user experience.
 
 ## Examples
 
